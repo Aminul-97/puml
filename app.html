@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PUML — PlantUML Viewer</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="#" aria-label="PUML home">
+      <span class="brand-mark">P</span>
+      <span>PUML</span>
+    </a>
+    <div class="topbar-actions">
+      <span id="save-status" class="save-status" role="status">Ready</span>
+      <button id="render-button" class="button button-primary" type="button">Render diagram</button>
+    </div>
+  </header>
+
+  <nav class="tabs main-tabs" aria-label="Workspace view">
+    <button class="tab active" id="code-tab" type="button" aria-selected="true">Code</button>
+    <button class="tab" id="diagram-tab" type="button" aria-selected="false">Diagram</button>
+  </nav>
+
+  <main class="workspace">
+    <section class="editor-panel panel">
+      <div class="panel-heading">
+        <div>
+          <h1>PlantUML source</h1>
+          <p>Write your diagram using PlantUML syntax.</p>
+        </div>
+        <button id="example-button" class="button button-secondary" type="button">Load example</button>
+      </div>
+      <div class="editor-wrap">
+        <div class="line-numbers" id="line-numbers" aria-hidden="true">1</div>
+        <textarea id="source-code" spellcheck="false" autocapitalize="off" autocomplete="off"
+          aria-label="PlantUML source code" wrap="off"></textarea>
+      </div>
+      <div class="editor-footer">
+        <span id="line-count">0 lines</span>
+        <span>PlantUML</span>
+      </div>
+    </section>
+
+    <section class="preview-panel panel">
+      <div class="panel-heading preview-heading">
+        <div>
+          <h1>Diagram preview</h1>
+          <p id="preview-description">Your rendered UML diagram will appear here.</p>
+        </div>
+        <div class="zoom-controls" aria-label="Diagram zoom controls">
+          <button id="zoom-out" class="icon-button" type="button" aria-label="Zoom out" title="Zoom out">−</button>
+          <button id="zoom-reset" class="zoom-value" type="button" title="Reset zoom">100%</button>
+          <button id="zoom-in" class="icon-button" type="button" aria-label="Zoom in" title="Zoom in">+</button>
+          <button id="fit-button" class="button button-secondary fit-button" type="button">Fit</button>
+        </div>
+      </div>
+
+
+      <div class="preview-content">
+        <div id="empty-state" class="empty-state">
+          <div class="empty-icon" aria-hidden="true">◇</div>
+          <h2>Ready to visualize?</h2>
+          <p>Write PlantUML code, then select <strong>Render diagram</strong>.</p>
+        </div>
+        <div id="loading-state" class="loading-state" hidden>
+          <span class="spinner" aria-hidden="true"></span>
+          <p>Rendering diagram…</p>
+        </div>
+        <div id="error-state" class="error-state" role="alert" hidden>
+          <h2>Couldn't render this diagram</h2>
+          <p id="error-message">Check your PlantUML syntax and try again.</p>
+          <button id="retry-button" class="button button-secondary" type="button">Try again</button>
+        </div>
+        <div id="diagram-viewport" class="diagram-viewport" hidden>
+          <div id="diagram-stage" class="diagram-stage">
+            <img id="diagram-image" alt="Rendered PlantUML diagram">
+          </div>
+        </div>
+      </div>
+      <div class="preview-footer">
+        <span id="render-status">No diagram rendered yet</span>
+        <span>Rendered with Kroki</span>
+      </div>
+    </section>
+  </main>
+
+  <footer class="app-footer">
+    <span>PUML · PlantUML viewer for Chrome</span>
+    <span>Source is saved locally. Rendering sends source code to Kroki.</span>
+  </footer>
+</body>
+</html>

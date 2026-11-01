@@ -1,0 +1,14 @@
+{
+  "manifest_version": 3,
+  "name": "PUML",
+  "version": "1.0.0",
+  "description": "Write PlantUML code and visualize UML diagrams in Chrome.",
+  "permissions": ["storage"],
+  "host_permissions": ["https://kroki.io/*"],
+  "background": {
+    "service_worker": "service-worker.js"
+  },
+  "action": {
+    "default_title": "Open PUML"
+  }
+}
