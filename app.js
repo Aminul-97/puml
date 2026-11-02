@@ -17,7 +17,7 @@ User "1" --> "*" Project : owns
 
 const STORAGE_KEY = "puml-source";
 const RENDER_ENDPOINT = "https://kroki.io/plantuml/svg";
-const DEBOUNCE_MS = 700;
+const DEBOUNCE_MS = 600;
 const MIN_ZOOM = 0.25;
 const MAX_ZOOM = 3;
 const ZOOM_STEP = 0.1;
@@ -26,8 +26,6 @@ const sourceEditor = document.querySelector("#source-code");
 const lineNumbers = document.querySelector("#line-numbers");
 const lineCount = document.querySelector("#line-count");
 const saveStatus = document.querySelector("#save-status");
-const renderButton = document.querySelector("#render-button");
-const exampleButton = document.querySelector("#example-button");
 const codeTab = document.querySelector("#code-tab");
 const diagramTab = document.querySelector("#diagram-tab");
 const emptyState = document.querySelector("#empty-state");
@@ -46,10 +44,20 @@ let renderRequestId = 0;
 let currentObjectUrl = null;
 let lastRenderedSource = "";
 
+let panX = 0;
+let panY = 0;
+let isPanning = false;
+let startX = 0;
+let startY = 0;
+
 function updateEditorMeta() {
   const lines = sourceEditor.value.split("\n").length;
   lineNumbers.textContent = Array.from({ length: lines }, (_, index) => index + 1).join("\n");
   lineCount.textContent = `${lines} ${lines === 1 ? "line" : "lines"}`;
+}
+
+function updateTransform() {
+  diagramImage.style.transform = `translate(${Math.round(panX)}px, ${Math.round(panY)}px)`;
 }
 
 function setTab(tab) {
@@ -58,9 +66,15 @@ function setTab(tab) {
   diagramTab.classList.toggle("active", showDiagram);
   codeTab.setAttribute("aria-selected", String(!showDiagram));
   diagramTab.setAttribute("aria-selected", String(showDiagram));
-  document.querySelector(".editor-panel").style.display = showDiagram ? "none" : "flex";
-  document.querySelector(".preview-panel").style.display = showDiagram ? "flex" : "none";
   document.querySelector(".workspace").classList.toggle("diagram-mode", showDiagram);
+
+  if (showDiagram) {
+    if (!lastRenderedSource && sourceEditor.value.trim()) {
+      renderDiagram();
+    } else if (!diagramViewport.hidden) {
+      fitDiagram();
+    }
+  }
 }
 
 function setPreviewState(state) {
@@ -72,18 +86,22 @@ function setPreviewState(state) {
 
 function setZoom(nextZoom) {
   zoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, nextZoom));
-  diagramImage.style.width = diagramImage.naturalWidth ? `${diagramImage.naturalWidth * zoom}px` : "";
-  diagramImage.style.height = diagramImage.naturalHeight ? `${diagramImage.naturalHeight * zoom}px` : "";
+  if (diagramImage.naturalWidth && diagramImage.naturalHeight) {
+    diagramImage.style.width = `${Math.round(diagramImage.naturalWidth * zoom)}px`;
+    diagramImage.style.height = `${Math.round(diagramImage.naturalHeight * zoom)}px`;
+  }
   document.querySelector("#zoom-reset").textContent = `${Math.round(zoom * 100)}%`;
+  updateTransform();
 }
 
 function fitDiagram() {
   if (!diagramImage.naturalWidth || !diagramImage.naturalHeight) return;
   const availableWidth = Math.max(100, diagramViewport.clientWidth - 48);
   const availableHeight = Math.max(100, diagramViewport.clientHeight - 48);
-  setZoom(Math.min(1, availableWidth / diagramImage.naturalWidth, availableHeight / diagramImage.naturalHeight));
-  diagramViewport.scrollTop = 0;
-  diagramViewport.scrollLeft = 0;
+  const fitZoom = Math.min(1, availableWidth / diagramImage.naturalWidth, availableHeight / diagramImage.naturalHeight);
+  panX = 0;
+  panY = 0;
+  setZoom(fitZoom);
 }
 
 async function loadSavedSource() {
@@ -112,13 +130,12 @@ function scheduleRender() {
   renderTimer = setTimeout(() => renderDiagram({ switchTab: false }), DEBOUNCE_MS);
 }
 
-async function renderDiagram({ switchTab = true } = {}) {
+async function renderDiagram({ switchTab = false } = {}) {
   const source = sourceEditor.value.trim();
   if (!source) {
-    setPreviewState("error");
-    errorMessage.textContent = "Enter some PlantUML source code before rendering.";
-    renderStatus.textContent = "Nothing to render";
-    if (switchTab) setTab("diagram");
+    setPreviewState("empty");
+    previewDescription.textContent = "Your rendered UML diagram will appear here.";
+    renderStatus.textContent = "No diagram source";
     return;
   }
 
@@ -126,8 +143,6 @@ async function renderDiagram({ switchTab = true } = {}) {
   setPreviewState("loading");
   previewDescription.textContent = "Sending source to the renderer…";
   renderStatus.textContent = "Rendering…";
-  renderButton.disabled = true;
-  renderButton.textContent = "Rendering…";
   if (switchTab) setTab("diagram");
 
   try {
@@ -154,11 +169,21 @@ async function renderDiagram({ switchTab = true } = {}) {
     const objectUrl = URL.createObjectURL(blob);
     const previousUrl = currentObjectUrl;
     currentObjectUrl = objectUrl;
+
     diagramImage.onload = () => {
       if (previousUrl) URL.revokeObjectURL(previousUrl);
-      setZoom(1);
-      fitDiagram();
+      if (requestId !== renderRequestId) return;
+      setPreviewState("diagram");
+      previewDescription.textContent = "Diagram rendered successfully.";
+      renderStatus.textContent = `Rendered ${new Date().toLocaleTimeString()}`;
+      if (!lastRenderedSource) {
+        fitDiagram();
+      } else {
+        setZoom(zoom);
+      }
+      lastRenderedSource = source;
     };
+
     diagramImage.onerror = () => {
       URL.revokeObjectURL(objectUrl);
       if (currentObjectUrl === objectUrl) currentObjectUrl = null;
@@ -167,11 +192,8 @@ async function renderDiagram({ switchTab = true } = {}) {
         errorMessage.textContent = "The returned SVG could not be displayed. Try rendering again.";
       }
     };
+
     diagramImage.src = objectUrl;
-    lastRenderedSource = source;
-    setPreviewState("diagram");
-    previewDescription.textContent = "Diagram rendered successfully.";
-    renderStatus.textContent = `Rendered ${new Date().toLocaleTimeString()}`;
   } catch (error) {
     if (requestId !== renderRequestId) return;
     setPreviewState("error");
@@ -181,14 +203,10 @@ async function renderDiagram({ switchTab = true } = {}) {
       : message;
     previewDescription.textContent = "Rendering failed.";
     renderStatus.textContent = "Render failed";
-  } finally {
-    if (requestId === renderRequestId) {
-      renderButton.disabled = false;
-      renderButton.textContent = "Render diagram";
-    }
   }
 }
 
+// Editor input events
 sourceEditor.addEventListener("input", () => {
   updateEditorMeta();
   saveSource();
@@ -208,18 +226,62 @@ sourceEditor.addEventListener("keydown", (event) => {
   }
 });
 
-renderButton.addEventListener("click", () => renderDiagram());
-exampleButton.addEventListener("click", () => {
-  sourceEditor.value = DEFAULT_SOURCE;
-  updateEditorMeta();
-  saveSource();
-  renderDiagram();
+// Viewport panning / moving with hand cursor
+diagramViewport.addEventListener("mousedown", (event) => {
+  if (event.button !== 0) return;
+  isPanning = true;
+  diagramViewport.classList.add("is-panning");
+  startX = event.clientX - panX;
+  startY = event.clientY - panY;
+  event.preventDefault();
 });
+
+window.addEventListener("mousemove", (event) => {
+  if (!isPanning) return;
+  event.preventDefault();
+  panX = event.clientX - startX;
+  panY = event.clientY - startY;
+  updateTransform();
+});
+
+window.addEventListener("mouseup", () => {
+  if (isPanning) {
+    isPanning = false;
+    diagramViewport.classList.remove("is-panning");
+  }
+});
+
+window.addEventListener("blur", () => {
+  if (isPanning) {
+    isPanning = false;
+    diagramViewport.classList.remove("is-panning");
+  }
+});
+
+diagramViewport.addEventListener("wheel", (event) => {
+  event.preventDefault();
+  if (event.ctrlKey || event.metaKey) {
+    const zoomFactor = event.deltaY < 0 ? 1.1 : 0.9;
+    setZoom(zoom * zoomFactor);
+  } else {
+    panX -= event.deltaX;
+    panY -= event.deltaY;
+    updateTransform();
+  }
+}, { passive: false });
+
+diagramImage.addEventListener("dragstart", (event) => event.preventDefault());
+
+// Tabs and zoom buttons
 codeTab.addEventListener("click", () => setTab("code"));
 diagramTab.addEventListener("click", () => setTab("diagram"));
 document.querySelector("#zoom-in").addEventListener("click", () => setZoom(zoom + ZOOM_STEP));
 document.querySelector("#zoom-out").addEventListener("click", () => setZoom(zoom - ZOOM_STEP));
-document.querySelector("#zoom-reset").addEventListener("click", () => setZoom(1));
+document.querySelector("#zoom-reset").addEventListener("click", () => {
+  panX = 0;
+  panY = 0;
+  setZoom(1);
+});
 document.querySelector("#fit-button").addEventListener("click", fitDiagram);
 document.querySelector("#retry-button").addEventListener("click", () => renderDiagram());
 window.addEventListener("resize", () => { if (!diagramViewport.hidden) fitDiagram(); });
@@ -227,4 +289,8 @@ window.addEventListener("beforeunload", () => {
   if (currentObjectUrl) URL.revokeObjectURL(currentObjectUrl);
 });
 
-loadSavedSource().then(() => setTab("code"));
+// Load saved source, set default view to Code tab, and auto-render in background
+loadSavedSource().then(() => {
+  setTab("code");
+  renderDiagram({ switchTab: false });
+});

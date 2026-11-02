@@ -15,7 +15,6 @@
     </a>
     <div class="topbar-actions">
       <span id="save-status" class="save-status" role="status">Ready</span>
-      <button id="render-button" class="button button-primary" type="button">Render diagram</button>
     </div>
   </header>
 
@@ -31,7 +30,6 @@
           <h1>PlantUML source</h1>
           <p>Write your diagram using PlantUML syntax.</p>
         </div>
-        <button id="example-button" class="button button-secondary" type="button">Load example</button>
       </div>
       <div class="editor-wrap">
         <div class="line-numbers" id="line-numbers" aria-hidden="true">1</div>
@@ -58,12 +56,11 @@
         </div>
       </div>
 
-
       <div class="preview-content">
         <div id="empty-state" class="empty-state">
           <div class="empty-icon" aria-hidden="true">◇</div>
           <h2>Ready to visualize?</h2>
-          <p>Write PlantUML code, then select <strong>Render diagram</strong>.</p>
+          <p>Write PlantUML code to automatically generate your diagram.</p>
         </div>
         <div id="loading-state" class="loading-state" hidden>
           <span class="spinner" aria-hidden="true"></span>
@@ -76,7 +73,7 @@
         </div>
         <div id="diagram-viewport" class="diagram-viewport" hidden>
           <div id="diagram-stage" class="diagram-stage">
-            <img id="diagram-image" alt="Rendered PlantUML diagram">
+            <img id="diagram-image" alt="Rendered PlantUML diagram" draggable="false">
           </div>
         </div>
       </div>
