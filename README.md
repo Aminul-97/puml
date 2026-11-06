@@ -8,7 +8,7 @@ PUML is a Manifest V3 Chrome extension for editing PlantUML source and visualizi
 - Code and Diagram tabs.
 - Automatic live rendering while editing code (600 ms debounce).
 - Zoom in, zoom out, reset zoom, fit-to-view, and hand-cursor click-and-drag panning.
-- Light and dark themes with a topbar switcher and preference persistence.
+- Light and dark themes for both the application interface and generated diagram preview, with a topbar switcher and preference persistence.
 - Locally saved source using `chrome.storage.local`.
 - Sample class diagram.
 - Helpful rendering error states.

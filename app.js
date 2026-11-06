@@ -107,6 +107,11 @@ function fitDiagram() {
   setZoom(fitZoom);
 }
 
+function isDiagramSourceDark(source) {
+  if (!source) return false;
+  return /(!theme\s+[\w-]*(dark|cyborg|black|superhero|hacker|carbon)|skinparam\s+backgroundColor\s+(black|#(?:0|1|2|3)[0-9a-fA-F]{5}))/i.test(source);
+}
+
 async function loadSavedSource() {
   try {
     const saved = await chrome.storage.local.get(STORAGE_KEY);
@@ -115,6 +120,7 @@ async function loadSavedSource() {
     sourceEditor.value = DEFAULT_SOURCE;
     if (saveStatus) saveStatus.textContent = "Local storage unavailable";
   }
+  diagramImage.classList.toggle("native-dark", isDiagramSourceDark(sourceEditor.value));
   updateEditorMeta();
 }
 
@@ -179,6 +185,7 @@ async function renderDiagram({ switchTab = false } = {}) {
       setPreviewState("diagram");
       previewDescription.textContent = "Diagram rendered successfully.";
       renderStatus.textContent = `Rendered ${new Date().toLocaleTimeString()}`;
+      diagramImage.classList.toggle("native-dark", isDiagramSourceDark(source));
       if (!lastRenderedSource) {
         fitDiagram();
       } else {
@@ -211,6 +218,7 @@ async function renderDiagram({ switchTab = false } = {}) {
 
 // Editor input events
 sourceEditor.addEventListener("input", () => {
+  diagramImage.classList.toggle("native-dark", isDiagramSourceDark(sourceEditor.value));
   updateEditorMeta();
   saveSource();
   scheduleRender();
