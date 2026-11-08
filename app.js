@@ -16,6 +16,7 @@ User "1" --> "*" Project : owns
 @enduml`;
 
 const STORAGE_KEY = "puml-source";
+const THEME_STORAGE_KEY = "puml-theme";
 const RENDER_ENDPOINT = "https://kroki.io/plantuml/svg";
 const DEBOUNCE_MS = 600;
 const MIN_ZOOM = 0.25;
@@ -26,6 +27,8 @@ const sourceEditor = document.querySelector("#source-code");
 const lineNumbers = document.querySelector("#line-numbers");
 const lineCount = document.querySelector("#line-count");
 const saveStatus = document.querySelector("#save-status");
+const themeLightBtn = document.querySelector("#theme-light-btn");
+const themeDarkBtn = document.querySelector("#theme-dark-btn");
 const codeTab = document.querySelector("#code-tab");
 const diagramTab = document.querySelector("#diagram-tab");
 const emptyState = document.querySelector("#empty-state");
@@ -104,24 +107,30 @@ function fitDiagram() {
   setZoom(fitZoom);
 }
 
+function isDiagramSourceDark(source) {
+  if (!source) return false;
+  return /(!theme\s+[\w-]*(dark|cyborg|black|superhero|hacker|carbon)|skinparam\s+backgroundColor\s+(black|#(?:0|1|2|3)[0-9a-fA-F]{5}))/i.test(source);
+}
+
 async function loadSavedSource() {
   try {
     const saved = await chrome.storage.local.get(STORAGE_KEY);
     sourceEditor.value = typeof saved[STORAGE_KEY] === "string" ? saved[STORAGE_KEY] : DEFAULT_SOURCE;
   } catch (error) {
     sourceEditor.value = DEFAULT_SOURCE;
-    saveStatus.textContent = "Local storage unavailable";
+    if (saveStatus) saveStatus.textContent = "Local storage unavailable";
   }
+  diagramImage.classList.toggle("native-dark", isDiagramSourceDark(sourceEditor.value));
   updateEditorMeta();
 }
 
 async function saveSource() {
-  saveStatus.textContent = "Saving…";
+  if (saveStatus) saveStatus.textContent = "Saving…";
   try {
     await chrome.storage.local.set({ [STORAGE_KEY]: sourceEditor.value });
-    saveStatus.textContent = "Saved locally";
+    if (saveStatus) saveStatus.textContent = "Saved locally";
   } catch (error) {
-    saveStatus.textContent = "Couldn't save";
+    if (saveStatus) saveStatus.textContent = "Couldn't save";
   }
 }
 
@@ -176,6 +185,7 @@ async function renderDiagram({ switchTab = false } = {}) {
       setPreviewState("diagram");
       previewDescription.textContent = "Diagram rendered successfully.";
       renderStatus.textContent = `Rendered ${new Date().toLocaleTimeString()}`;
+      diagramImage.classList.toggle("native-dark", isDiagramSourceDark(source));
       if (!lastRenderedSource) {
         fitDiagram();
       } else {
@@ -208,6 +218,7 @@ async function renderDiagram({ switchTab = false } = {}) {
 
 // Editor input events
 sourceEditor.addEventListener("input", () => {
+  diagramImage.classList.toggle("native-dark", isDiagramSourceDark(sourceEditor.value));
   updateEditorMeta();
   saveSource();
   scheduleRender();
@@ -272,6 +283,68 @@ diagramViewport.addEventListener("wheel", (event) => {
 
 diagramImage.addEventListener("dragstart", (event) => event.preventDefault());
 
+function applyTheme(theme, save = true) {
+  const isDark = theme === "dark";
+  document.documentElement.setAttribute("data-theme", isDark ? "dark" : "light");
+  if (themeLightBtn && themeDarkBtn) {
+    themeLightBtn.classList.toggle("active", !isDark);
+    themeLightBtn.setAttribute("aria-pressed", String(!isDark));
+    themeDarkBtn.classList.toggle("active", isDark);
+    themeDarkBtn.setAttribute("aria-pressed", String(isDark));
+  }
+  if (save) {
+    try {
+      localStorage.setItem(THEME_STORAGE_KEY, isDark ? "dark" : "light");
+    } catch (e) {}
+    try {
+      if (typeof chrome !== "undefined" && chrome?.storage?.local) {
+        chrome.storage.local.set({ [THEME_STORAGE_KEY]: isDark ? "dark" : "light" });
+      }
+    } catch (e) {}
+  }
+}
+
+async function initTheme() {
+  let theme = "light";
+  try {
+    const localVal = localStorage.getItem(THEME_STORAGE_KEY);
+    if (localVal === "dark" || localVal === "light") {
+      theme = localVal;
+    } else if (typeof chrome !== "undefined" && chrome?.storage?.local) {
+      const stored = await chrome.storage.local.get(THEME_STORAGE_KEY);
+      if (stored && (stored[THEME_STORAGE_KEY] === "dark" || stored[THEME_STORAGE_KEY] === "light")) {
+        theme = stored[THEME_STORAGE_KEY];
+      } else if (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches) {
+        theme = "dark";
+      }
+    } else if (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches) {
+      theme = "dark";
+    }
+  } catch (e) {
+    if (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches) {
+      theme = "dark";
+    }
+  }
+  applyTheme(theme, false);
+}
+
+// Theme switcher buttons
+if (themeLightBtn) {
+  themeLightBtn.addEventListener("click", () => applyTheme("light", true));
+}
+if (themeDarkBtn) {
+  themeDarkBtn.addEventListener("click", () => applyTheme("dark", true));
+}
+if (window.matchMedia) {
+  window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", (e) => {
+    try {
+      if (!localStorage.getItem(THEME_STORAGE_KEY)) {
+        applyTheme(e.matches ? "dark" : "light", false);
+      }
+    } catch (err) {}
+  });
+}
+
 // Tabs and zoom buttons
 codeTab.addEventListener("click", () => setTab("code"));
 diagramTab.addEventListener("click", () => setTab("diagram"));
@@ -289,7 +362,8 @@ window.addEventListener("beforeunload", () => {
   if (currentObjectUrl) URL.revokeObjectURL(currentObjectUrl);
 });
 
-// Load saved source, set default view to Code tab, and auto-render in background
+// Initialize theme, load saved source, set default view to Code tab, and auto-render in background
+initTheme();
 loadSavedSource().then(() => {
   setTab("code");
   renderDiagram({ switchTab: false });
