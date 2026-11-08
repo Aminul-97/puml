@@ -5,6 +5,12 @@
   "description": "Write PlantUML code and visualize UML diagrams in Chrome.",
   "permissions": ["storage"],
   "host_permissions": ["https://kroki.io/*"],
+  "icons": {
+    "16": "logo/logo16.png",
+    "32": "logo/logo32.png",
+    "48": "logo/logo48.png",
+    "128": "logo/logo128.png"
+  },
   "background": {
     "service_worker": "service-worker.js"
   },
